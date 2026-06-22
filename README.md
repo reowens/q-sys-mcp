@@ -58,8 +58,13 @@ Then, from the agent: call `qsys_connect` (host `127.0.0.1`, port `1710` for a l
 | `qsys_get_component` | `Component.Get` | Get specific component control values |
 | `qsys_set_control` | `Control.Set` | Set a Named Control (with optional ramp) |
 | `qsys_set_component` | `Component.Set` | Set component controls (with optional ramps) |
-| `qsys_create_change_group` | `ChangeGroup.AddControl` | Watch controls for changes |
+| `qsys_create_change_group` | `ChangeGroup.AddControl` | Watch Named Controls for changes |
+| `qsys_change_group_add_component` | `ChangeGroup.AddComponentControl` | Watch a component's controls |
 | `qsys_poll_change_group` | `ChangeGroup.Poll` | Get changes since last poll |
+| `qsys_destroy_change_group` | `ChangeGroup.Destroy` | Free a change group's server-side state |
+| `qsys_disconnect` | (socket) | Close the connection |
+
+`qsys_list_components` and `qsys_get_component_controls` accept optional `filter` (case-insensitive name substring), `names_only`, and — for components — `type`, to trim large designs before they reach the agent's context.
 
 ## Verify
 

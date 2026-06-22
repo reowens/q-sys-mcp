@@ -51,12 +51,25 @@ async function main(): Promise<void> {
   assert.equal(poll2.Changes.length, 1, 'second poll should report exactly one change');
   assert.equal(poll2.Changes[0].Value, 5);
 
+  // Component-control change group (ChangeGroup.AddComponentControl)
+  await client.changeGroupAddComponentControl('cg2', 'Gain1', ['gain']);
+  const cpoll1 = await client.changeGroupPoll('cg2');
+  assert.ok(cpoll1.Changes.find((c) => c.Name === 'gain'), 'first poll should include the component control');
+  await client.setComponent('Gain1', [{ Name: 'gain', Value: 7 }]);
+  const cpoll2 = await client.changeGroupPoll('cg2');
+  assert.equal(cpoll2.Changes.length, 1, 'second poll should report exactly one component-control change');
+  assert.equal(cpoll2.Changes[0].Value, 7);
+
+  // Destroy frees the group (ChangeGroup.Destroy)
+  await client.changeGroupDestroy('cg2');
+  await assert.rejects(() => client.changeGroupPoll('cg2'), /Unknown change group/);
+
   // Error propagation: unknown component should reject as QrcError
   await assert.rejects(() => client.getComponentControls('NoSuchComponent'), /Unknown component/);
 
   client.close();
   await mock.close();
-  console.log('PASS: all QRC integration assertions (10 checks)');
+  console.log('PASS: all QRC integration assertions (19 checks)');
 }
 
 main().catch((e) => {

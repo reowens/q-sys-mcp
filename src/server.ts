@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { QrcClient, type EngineStatus } from './qrc.js';
+import { QrcClient, type EngineStatus, type QrcComponent, type QrcControl } from './qrc.js';
 
 let client: QrcClient | null = null;
 let lastEngineStatus: EngineStatus | null = null;
@@ -30,6 +30,36 @@ function liveCoreWarning(): string | null {
 }
 
 const controlValue = z.union([z.number(), z.string(), z.boolean()]);
+
+/** Client-side trim — QRC has no server-side filter/pagination, so we shape the full response. */
+function shapeComponents(
+  comps: QrcComponent[],
+  opts: { filter?: string; type?: string; names_only?: boolean },
+): unknown {
+  let out = comps;
+  if (opts.filter) {
+    const f = opts.filter.toLowerCase();
+    out = out.filter((c) => c.Name.toLowerCase().includes(f));
+  }
+  if (opts.type) {
+    const t = opts.type.toLowerCase();
+    out = out.filter((c) => (c.Type ?? '').toLowerCase().includes(t));
+  }
+  return opts.names_only ? out.map((c) => ({ Name: c.Name, Type: c.Type })) : out;
+}
+
+function shapeControls(
+  res: { Name: string; Controls: QrcControl[] },
+  opts: { filter?: string; names_only?: boolean },
+): unknown {
+  let ctrls = res.Controls;
+  if (opts.filter) {
+    const f = opts.filter.toLowerCase();
+    ctrls = ctrls.filter((c) => c.Name.toLowerCase().includes(f));
+  }
+  if (opts.names_only) return { Name: res.Name, Controls: ctrls.map((c) => c.Name) };
+  return { ...res, Controls: ctrls };
+}
 
 export function buildServer(): McpServer {
   const server = new McpServer({ name: 'q-sys-mcp', version: '0.1.0' });
@@ -90,12 +120,17 @@ export function buildServer(): McpServer {
     'qsys_list_components',
     {
       title: 'List components',
-      description: 'List every named component in the running/emulated design, with type and properties (Component.GetComponents).',
-      inputSchema: {},
+      description:
+        'List named components in the running/emulated design, with type and properties (Component.GetComponents). On large designs use filter/type/names_only to trim the response.',
+      inputSchema: {
+        filter: z.string().optional().describe('Case-insensitive substring; only components whose name contains it are returned'),
+        type: z.string().optional().describe('Case-insensitive substring on component type (e.g. "gain", "mixer")'),
+        names_only: z.boolean().optional().describe('Return only name + type per component (drop properties) to save context'),
+      },
     },
-    async () => {
+    async ({ filter, type, names_only }) => {
       try {
-        return ok(await requireClient().getComponents());
+        return ok(shapeComponents(await requireClient().getComponents(), { filter, type, names_only }));
       } catch (e) {
         return fail((e as Error).message);
       }
@@ -106,12 +141,17 @@ export function buildServer(): McpServer {
     'qsys_get_component_controls',
     {
       title: 'Get component controls',
-      description: 'List all controls and their current values for a named component (Component.GetControls).',
-      inputSchema: { name: z.string().describe('Component name (as returned by qsys_list_components)') },
+      description:
+        "List a named component's controls and current values (Component.GetControls). Use filter/names_only to trim large components.",
+      inputSchema: {
+        name: z.string().describe('Component name (as returned by qsys_list_components)'),
+        filter: z.string().optional().describe('Case-insensitive substring; only controls whose name contains it are returned'),
+        names_only: z.boolean().optional().describe('Return only control names (drop values/positions) to save context'),
+      },
     },
-    async ({ name }) => {
+    async ({ name, filter, names_only }) => {
       try {
-        return ok(await requireClient().getComponentControls(name));
+        return ok(shapeControls(await requireClient().getComponentControls(name), { filter, names_only }));
       } catch (e) {
         return fail((e as Error).message);
       }
@@ -244,6 +284,62 @@ export function buildServer(): McpServer {
       } catch (e) {
         return fail((e as Error).message);
       }
+    },
+  );
+
+  server.registerTool(
+    'qsys_change_group_add_component',
+    {
+      title: 'Add component controls to a change group',
+      description:
+        "Add a named component's controls to a change group so you can poll them for changes (ChangeGroup.AddComponentControl).",
+      inputSchema: {
+        id: z.string().describe('Change group id (any string; reused on poll)'),
+        component: z.string().describe('Component name'),
+        controls: z.array(z.string()).min(1).describe('Control names within the component to watch'),
+      },
+    },
+    async ({ id, component, controls }) => {
+      try {
+        return ok(await requireClient().changeGroupAddComponentControl(id, component, controls));
+      } catch (e) {
+        return fail((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    'qsys_destroy_change_group',
+    {
+      title: 'Destroy a change group',
+      description: 'Destroy a change group, freeing its server-side state (ChangeGroup.Destroy).',
+      inputSchema: { id: z.string().describe('Change group id') },
+    },
+    async ({ id }) => {
+      try {
+        return ok(await requireClient().changeGroupDestroy(id));
+      } catch (e) {
+        return fail((e as Error).message);
+      }
+    },
+  );
+
+  // ChangeGroup.AutoPoll is intentionally omitted in v1: MCP stdio is request/response,
+  // so a Core-pushed poll has nowhere to land; manual qsys_poll_change_group covers it.
+  server.registerTool(
+    'qsys_disconnect',
+    {
+      title: 'Disconnect from Q-SYS',
+      description: 'Close the QRC connection to the Core/emulator. A later qsys_connect is required before other tools.',
+      inputSchema: {},
+    },
+    async () => {
+      if (client) {
+        client.close();
+        client = null;
+        lastEngineStatus = null;
+      }
+      return ok({ disconnected: true });
     },
   );
 
