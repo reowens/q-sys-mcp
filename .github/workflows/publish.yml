@@ -1,0 +1,84 @@
+name: Publish
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # create the GitHub Release
+  id-token: write   # OIDC token exchange for npm trusted publishing
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Node 24 bundles npm >= 11.5.1, which trusted publishing needs to perform
+      # the OIDC token exchange. Node 22 ships npm 10.x and falls back to an
+      # unauthenticated PUT, which the registry answers with a 404 (looks like
+      # "package not found" but is really an auth mismatch).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Refuse to publish a tag that isn't on master
+        run: |
+          git fetch origin master --depth=1
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "Refusing to publish: tag commit is not on master"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Verify tag matches package.json version
+        run: |
+          TAG="${GITHUB_REF##*/}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "v$PKG_VERSION" != "$TAG" ]; then
+            echo "Tag $TAG does not match package.json version v$PKG_VERSION"
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run build
+
+      # Audit the npm tarball so nothing outside the "files" whitelist ships.
+      # Our package.json "files" is dist/ + README + LICENSE; anything else
+      # (src/, test/, a stray .env) fails the release before it hits the registry.
+      # Preview locally with: npm pack --dry-run
+      - name: Audit npm tarball for leaks
+        run: |
+          FILES=$(npm pack --dry-run 2>&1 | sed -n 's/^npm notice [0-9][0-9.]*[kMG]*B[[:space:]]*//p')
+          LEAKED=""
+          while IFS= read -r FILE; do
+            [ -z "$FILE" ] && continue
+            case "$FILE" in
+              dist/*|package.json|README.md|LICENSE) ;;
+              *) LEAKED="${LEAKED}  - ${FILE}\n" ;;
+            esac
+          done <<< "$FILES"
+          if [ -n "$LEAKED" ]; then
+            printf "ERROR: unexpected files in npm tarball:\n%b" "$LEAKED"
+            echo "If intentional, add them to this case pattern AND to \"files\" in package.json."
+            exit 1
+          fi
+          echo "Tarball audit passed — only whitelisted files."
+
+      # OIDC trusted publishing — no NPM_TOKEN. id-token: write lets npm exchange
+      # a short-lived OIDC token for a publish credential. Provenance is
+      # auto-generated only for public repos, so no --provenance flag here.
+      - name: Publish to npm
+        run: npm publish --access public
+
+      - name: Create GitHub Release
+        run: gh release create "${{ github.ref_name }}" --generate-notes --title "${{ github.ref_name }}" || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
