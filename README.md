@@ -141,6 +141,10 @@ npm run smoke:keepalive                # idle >60s, prove the socket survives QR
 - **Auto-reconnect** — re-dial on socket drop (Core restart / leaving Emulate). Today the agent re-calls `qsys_connect`.
 - **Design authoring** (reading/writing `.qsys` files) — out of scope: `.qsys` is a compressed .NET `BinaryFormatter` graph type-coupled to QSC's assemblies.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes, or the [GitHub releases](https://github.com/reowens/q-sys-mcp/releases) page.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Q-SYS and QRC are trademarks/protocols of QSC, LLC; this project is an independent client and is not affiliated with or endorsed by QSC.
