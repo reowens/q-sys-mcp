@@ -18,6 +18,7 @@ It's a pure wire-protocol client: **zero QSC code**, no SDK, no hardware require
 - **Cross-platform** — `node:net` only; CI proves it on Linux, macOS, and Windows × Node 18 & 20.
 - **Context-friendly** — list/get tools take `filter` / `names_only` / `type` so large designs don't flood the agent's context.
 - **Safe by default** — write tools warn when they're hitting a live Core (not an emulator); a 30 s `NoOp` keepalive holds the socket open through QRC's 60 s idle close.
+- **Self-healing** — on a dropped socket (Core restart, leaving Emulate, a network blip) the client auto-reconnects and replays your change-group registrations, so polling resumes without re-calling `qsys_connect`. Opt out with `reconnect: false`.
 
 ## Quick start
 
@@ -138,7 +139,7 @@ npm run smoke:keepalive                # idle >60s, prove the socket survives QR
 ## Roadmap / out of scope
 
 - **WebSocket transport** via `@q-sys/qrwc` — a convenience adapter for real Cores. Raw QRC is the primary transport today; the lib is still beta.
-- **Auto-reconnect** — re-dial on socket drop (Core restart / leaving Emulate). Today the agent re-calls `qsys_connect`.
+- **Real-Core validation** — every test so far runs against Designer's emulator; a physical Core run is the honest trigger to graduate to `1.0.0`.
 - **Design authoring** (reading/writing `.qsys` files) — out of scope: `.qsys` is a compressed .NET `BinaryFormatter` graph type-coupled to QSC's assemblies.
 
 ## Changelog

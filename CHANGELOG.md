@@ -6,6 +6,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Transparent auto-reconnect. On an unexpected socket drop (Core restart,
+  leaving Emulate mode, a network blip) the client re-dials with exponential
+  backoff and replays its logon + change-group registrations, so polling resumes
+  without re-calling `qsys_connect`. In-flight and subsequent requests wait for
+  the reconnect and retry once — drops are transparent to callers. On by
+  default; opt out per connection with `reconnect: false` on `qsys_connect`.
+
 ### Changed
 
 - Richer package description + expanded npm keywords, and added GitHub repo

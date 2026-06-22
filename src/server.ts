@@ -15,7 +15,10 @@ function fail(message: string) {
 }
 
 function requireClient(): QrcClient {
-  if (!client || !client.isConnected()) {
+  // Don't gate on isConnected(): a reconnect-enabled client may be mid-drop, and
+  // its send() transparently waits for the socket to come back. Only a missing
+  // client (never connected, or explicitly disconnected) is a hard error.
+  if (!client) {
     throw new Error('Not connected to Q-SYS. Call qsys_connect first.');
   }
   return client;
@@ -75,18 +78,25 @@ export function buildServer(): McpServer {
         port: z.number().int().default(1710).describe('QRC port (default 1710)'),
         user: z.string().optional().describe('Username, if the design requires authentication'),
         password: z.string().optional().describe('Password, if the design requires authentication'),
+        reconnect: z
+          .boolean()
+          .default(true)
+          .describe('Auto-reconnect on a dropped socket (Core restart, network blip), replaying change-group registrations so polling resumes. Default true.'),
       },
     },
-    async ({ host, port, user, password }) => {
+    async ({ host, port, user, password, reconnect }) => {
       try {
         if (client) client.close();
-        const c = new QrcClient({ host, port });
+        const c = new QrcClient({ host, port, reconnect });
         c.on('engineStatus', (s: EngineStatus) => {
           lastEngineStatus = s;
         });
         c.on('error', () => {
           /* surfaced per-request; avoid crashing the server on transient socket errors */
         });
+        c.on('reconnecting', (attempt: number) => console.error(`[qrc] connection dropped — reconnecting (attempt ${attempt})…`));
+        c.on('reconnected', () => console.error('[qrc] reconnected; change-group registrations replayed'));
+        c.on('reconnectFailed', () => console.error('[qrc] reconnect gave up; will retry on the next request'));
         await c.connect();
         if (user && password) await c.logon(user, password);
         client = c;

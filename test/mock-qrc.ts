@@ -8,6 +8,10 @@ import net from 'node:net';
 export interface MockHandle {
   port: number;
   close: () => Promise<void>;
+  /** Destroy all live client sockets (simulates a Core dropping the connection). */
+  dropConnections: () => void;
+  /** Clear server-side change groups (simulates a Core restart losing them). */
+  resetState: () => void;
 }
 
 interface State {
@@ -30,8 +34,12 @@ export function startMockQrc(port = 0): Promise<MockHandle> {
     changeGroups: {},
   };
 
+  const sockets = new Set<net.Socket>();
+
   const server = net.createServer((sock) => {
     sock.setEncoding('utf8');
+    sockets.add(sock);
+    sock.on('close', () => sockets.delete(sock));
     let buf = '';
     const send = (obj: unknown) => sock.write(JSON.stringify(obj) + '\0');
 
@@ -74,6 +82,13 @@ export function startMockQrc(port = 0): Promise<MockHandle> {
       resolve({
         port: addr.port,
         close: () => new Promise<void>((r) => server.close(() => r())),
+        dropConnections: () => {
+          for (const s of sockets) s.destroy();
+          sockets.clear();
+        },
+        resetState: () => {
+          state.changeGroups = {};
+        },
       });
     });
   });
