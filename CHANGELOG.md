@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-30
+
 ### Added
 
 - Transparent auto-reconnect. On an unexpected socket drop (Core restart,
@@ -51,6 +53,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Cross-platform CI (Linux / macOS / Windows × Node 18 & 20) with a
   hardware-free test suite (mock QRC + in-memory MCP transport).
 
-[Unreleased]: https://github.com/reowens/qsys-mcp/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/reowens/qsys-mcp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/reowens/qsys-mcp/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/reowens/qsys-mcp/releases/tag/v0.1.1
 [0.1.0]: https://www.npmjs.com/package/q-sys-mcp/v/0.1.0

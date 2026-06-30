@@ -1,6 +1,6 @@
 {
   "name": "qsys-mcp",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Control a Q-SYS audio/video system from an AI agent over QSC's QRC protocol — against a real Core or Q-SYS Designer in Emulate mode. Open-source, cross-platform, zero QSC code.",
   "type": "module",
   "bin": {
