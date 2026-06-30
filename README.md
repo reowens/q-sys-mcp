@@ -3,7 +3,7 @@
 > Let an AI agent inspect and control a **Q-SYS** audio/video system over QSC's published **QRC** protocol — against a real Core or Q-SYS Designer's built-in emulator.
 
 [![CI](https://github.com/reowens/qsys-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/reowens/qsys-mcp/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/qsys-mcp.svg)](https://www.npmjs.com/package/qsys-mcp)
+[![npm](https://img.shields.io/npm/v/q-sys-mcp.svg)](https://www.npmjs.com/package/q-sys-mcp)
 [![node](https://img.shields.io/badge/node-%E2%89%A518-brightgreen.svg)](https://nodejs.org)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -25,8 +25,10 @@ It's a pure wire-protocol client: **zero QSC code**, no SDK, no hardware require
 Run it straight from npm (no install):
 
 ```bash
-npx -y qsys-mcp        # MCP server on stdio
+npx -y q-sys-mcp       # MCP server on stdio
 ```
+
+> Published on npm as **`q-sys-mcp`**; the installed command is **`qsys-mcp`**.
 
 Or from source:
 
@@ -46,7 +48,7 @@ Add it to your MCP client config (Claude Desktop, etc.):
   "mcpServers": {
     "q-sys": {
       "command": "npx",
-      "args": ["-y", "qsys-mcp"]
+      "args": ["-y", "q-sys-mcp"]
     }
   }
 }
